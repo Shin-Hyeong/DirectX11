@@ -1,0 +1,25 @@
+DirectX : CPU가 GPU에 외주를 맞길때 그래픽카드 회사에 따라 다른 명령어로 주문을 넣는게 아닌 하나의 라이브러리를 통해서 동일한 명령으로 다른 회사의 그래픽카드에도 동일한 주문을 넣을수 있음
+
+렌더링 파이프라인
+
+- Input-Assembler Stage									<-		┐
+	Object의 정점 정보(폴리곤이 어떻게 연결되어 있는지)					│
+- Vertex Shader Stage(메인)									<-		│
+	정점의 정보를 가지고 2D or 3D에 맞게 정점 위치 연산					│
+	어디 위치로 이동(정점 변환). 모핑, 스키닝, 조명 						│
+															│
+- Hull Shader Stage		┐								<-		│
+- Tessellator Stage		│Tessellation Stages(Dirext 11에서 추가됨)			│
+- Domain Shader Stage	┘								<-		│
+- Geometry Shader Stage(Dirext 10에서 추가됨)					<-		│	Memory Resources(Buffer, Texture, Constrant Buffer)
+	4개의 단계 공통적으로 새로운 정점을 생성할 때 사용됨					│
+	멀리 있는 Object의 정점은 적게 									│
+	가까이 있는 Obejct의 정점은 많게 늘리고 줄이고						│
+- 				Stream output State						->		│
+- Rasterizer Stage													│
+	연결된 정점을 가지고 선형보간하는 작업								│
+	정점으로 연결된 삼각형이 어느 픽셀을 채워야하는지 연산					│
+- Pixel Shader Stage										<->		│	
+	Pixel에 색상을 입히는 단계										│
+- Ouput - Merger Stage									<->		│
+	모든 정보를 규합해서 최종 결과물을 정하는 과정						┘
