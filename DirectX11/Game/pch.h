@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <string>
 #include <list>
 #include <map>
 #include <unordered_map>
@@ -31,8 +32,6 @@ using namespace Microsoft::WRL; // ComPtr 관련
 #pragma comment(lib, "DirectXTex\\DirectXTex.lib")
 #endif
 
-
-
 // Define
 using int8 = __int8;
 using int16 = __int16;
@@ -42,6 +41,7 @@ using uint8 = unsigned __int8;
 using uint16 = unsigned __int16;
 using uint32 = unsigned __int32;
 using uint64 = unsigned __int64;
+using namespace std;
 
 using Vec2 = DirectX::XMFLOAT2;
 using Vec3 = DirectX::XMFLOAT3;
@@ -51,3 +51,10 @@ using Color = DirectX::XMFLOAT4;
 // Window
 const int32 GWinSizeX = 800;
 const int32 GWinSizeY = 600;
+
+// Struct
+struct Vertex
+{
+	Vec3	position;	// 정점의 3D 좌표, 12byte
+	Color	color;		// 정점 색상
+};

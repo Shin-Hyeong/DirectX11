@@ -1,4 +1,5 @@
 #pragma once
+
 class Game
 {
 public:
@@ -20,13 +21,33 @@ private:
 	// Viewport 설정
 	void SetViewport();
 
+
+	// 기하학적 요소(도형) 생성
+	void CreateGeometry();
+	// vertexBuffer의 멤버와 셰이더에서 VS_INPUT(구조체) 멤버와 연결 및 설명, IA단계에서 사용됨
+	// InputLayout : vertexBuffer가 담고 있는 데이터가 어떤 데이터인지, 
+	// 셰이더에 어떻게 넘길 것인지 같은 정보를 저장해 두는 것
+	void CreateInputLayout();
+
+
+	// 셰이더 불러오기
+	// wstring : wchar형태(영어를 제외한 문자를 사용하기 윈한 2바이트)
+	void LoadShaderFromFile(const wstring& path, const string& name, 
+		const string& version, ComPtr<ID3DBlob>& blob);
+	// 불러온 셰이더를 GPU에게 전달하기
+	void CreateVS();
+	void CreatePS();
+	
+
 private:
 	HWND			_hwnd;
 	uint32			_width = 0;
 	uint32			_height = 0;
 
 private:
-	// DX11
+	/**
+		DirectX 11
+	*/
 	// Com객체 & ComPtr : https://pub-repository.tistory.com/98 혹은 Reference폴더 DX11 Com & ComPtr 참조
 	// I : Interface
 	// ID3D11Device : Com(Component Object Model)객체
@@ -44,7 +65,7 @@ private:
 	ComPtr<ID3D11Device>				_device;
 	// _deviceContext : device가 사용되는 환경이나 설정을 함. 리소스와 셰이더를 파이프라인에 연결하고 렌더링을 수행
 	// 디바이스 컨텍스트는 파이프라인 상태를 설정하고 디바이스가 소유한 리소스를 사용하여 렌더링 명령을 생성하는 데 사용됩니다
-	ComPtr<ID3D11DeviceContext>		_deviceContext;
+	ComPtr<ID3D11DeviceContext>			_deviceContext;
 
 	// SwapChain
 	// DXGI(DirectX Graphics Infrastructure) : DX10부터 사용
@@ -66,6 +87,30 @@ private:
 	// 화면를 설명하는 구조체(크기, 등)
 	D3D11_VIEWPORT						_viewport = {0};
 	// 초기 색상
-	float _clearColor[4] = { 0.5f, 0.5f, 0.5f, 0.5f };
+	float _clearColor[4] = { 0.f, 0.f, 0.f, 0.f };
+
+	/**
+		Geometry
+	*/
+	// 정점의 정보를 담은 배열
+	vector<Vertex>						_vertices;
+	// CPU가 가진 정보를 GPU에게 전달해야함
+	// GPU가 정보를 읽기 위한 VRAM에 저장될 데이터를 가짐.
+	ComPtr<ID3D11Buffer>				_vertexBuffer = nullptr;
+	// _vertexBuffer를 통해 전달되는 _vertices의 구조를 설명함
+	ComPtr<ID3D11InputLayout>			_inputLayout = nullptr;
+
+	/**
+		Shader
+	*/
+	// Vertex Shader
+	ComPtr<ID3D11VertexShader>			_vertexShader = nullptr;
+	// Blob : 셰이더 파일 정보를 가져옴
+	ComPtr<ID3DBlob>					_vsBlob = nullptr;
+
+	// Pixel Shader
+	ComPtr<ID3D11PixelShader>			_pixelShader = nullptr;
+	// Blob : 셰이더 파일 정보를 가져옴
+	ComPtr<ID3DBlob>					_psBlob = nullptr;
 };
 

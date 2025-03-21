@@ -18,10 +18,21 @@ void Game::BeginPlay(HWND hwnd)
 	_width = GWinSizeX;
 	_height = GWinSizeY;
 
-	// TODO
 	// device와 SwapChain 생성
 	CreateDeviceAndSwapChain();
+	// RTV 생성
 	CreateRenderTargetView();
+	// Viewport 설정
+	SetViewport();
+
+	// 도형 생성(그리기)
+	CreateGeometry();
+	// VertexShader 생성
+	CreateVS();
+	// VertexShader에 대한 설명
+	CreateInputLayout();
+	// PixelShader 생성
+	CreatePS();
 }
 
 void Game::Tick()
@@ -34,8 +45,35 @@ void Game::Render()
 	// Render 준비 작업
 	RenderBegin();
 
-	// TODO
-	// Render에 필요한 작업
+	// 렌더링 파이프라인에 연결하기
+	// IA - VS - RS - PS - OM
+	{
+		uint32 stride = sizeof(Vertex);
+		uint32 offset = 0;
+		// IA(코딩 불가) : 사용할 값들을 설정
+		// 사용할 VertexBuffer(정점에 대한 정보) 설정
+		_deviceContext->IASetVertexBuffers(0, 1, _vertexBuffer.GetAddressOf(),&stride, &offset);
+		// VertexBuffer에 대한 설명을 연결
+		_deviceContext->IASetInputLayout(_inputLayout.Get());
+		// 각 정점들을 어떻게 연결할것인지 설정
+		// https://vitacpp.tistory.com/37
+		// 삼각형 형태로 연결할것
+		_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		// VS(코딩 가능)
+		// 사용할 vertexShader 연결
+		_deviceContext->VSSetShader(_vertexShader.Get(), nullptr, 0);
+
+		// RS(코딩 불가)
+
+		// PS(코딩 가능)
+		// 사용할 pixelShader 연결
+		_deviceContext->PSSetShader(_pixelShader.Get(), nullptr, 0);
+
+		// OM(코딩 불가)
+		// 입력한 값을 그려달라고 요청
+		_deviceContext->Draw(_vertices.size(), 0);
+	}
 
 	// Render 실행
 	RenderEnd();
@@ -142,3 +180,131 @@ void Game::SetViewport()
 	_viewport.MinDepth = 0.f;
 	_viewport.MaxDepth = 1.f;
 }
+
+// 도형 생성
+void Game::CreateGeometry()
+{
+	// 정점 정보
+	{
+		_vertices.resize(3);
+
+		_vertices[0].position = Vec3(-0.5f, -0.5f, 0.f);
+		_vertices[0].color = Color(1.0f, 0.f, 0.f, 1.0f);
+
+		_vertices[1].position = Vec3(0.f, 0.5f, 0.f);
+		_vertices[1].color = Color(0.f, 1.0f, 0.f, 1.0f);
+
+		_vertices[2].position = Vec3(0.5f, -0.5f, 0.f);
+		_vertices[2].color = Color(0.f, 0.f, 1.f, 1.0f);
+	}
+
+	// GPU의 VRAM에 정점 정보를 가지는 Buffer를 생성함
+	{
+		D3D11_BUFFER_DESC desc;
+		// desc를 전체 값을 0으로 초기화 -> 필요한 값만 설정해서 사용함
+		// 모든 값을 설정할 것 아니면 0으로 초기화 이후 사용
+		ZeroMemory(&desc, sizeof(desc));
+		// Buffer의 사용방식 설정
+		// https://learn.microsoft.com/ko-kr/windows/win32/api/d3d11/ne-d3d11-d3d11_usage
+		// https://myoung-min.tistory.com/10
+		// D3D11_USAGE_IMMUTABLE : GPU는 읽기전용으로 사용, CPU는 접근 못함
+		desc.Usage = D3D11_USAGE_IMMUTABLE; 
+		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER; // VertexBuffer를 만드는데 사용할 것이다
+		desc.ByteWidth = static_cast<UINT>(sizeof(Vertex) * _vertices.size()); // Vertex 구조체 크기 * 배열 갯수
+
+		D3D11_SUBRESOURCE_DATA data;
+		ZeroMemory(&data, sizeof(data));
+		// CPU에서 GPU에게 전달할 데이터 시작 주소
+		data.pSysMem = _vertices.data(); // .data() 배열의 첫번째 값 주소
+
+		// _vertices배열 정보를 가진 VertexBuffer 타입의 Buffer 생성
+		_device->CreateBuffer(&desc, &data, _vertexBuffer.GetAddressOf());
+	}
+}
+
+// vertexShader의 입력된 정보를 어떻게 사용하는지 설명
+void Game::CreateInputLayout()
+{
+	D3D11_INPUT_ELEMENT_DESC layout[] =
+	{
+		// Shader에서 POSITION은 32bit float가 3개(12byte)로 이루어짐
+		// Vertex구조체에서 position은 구조체 시작 0byte 이후 자리에 있음
+		// Vertex Data로 이루어짐
+		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		// Shader COLOR은 32bit float가 4개로 이루어짐
+		// Vertex구조체의 Color은 시작지점에서 12byte 이후 자리에 있음
+		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+	};
+
+	// layout의 배열 개수
+	const int32 count = sizeof(layout) / sizeof(D3D11_INPUT_ELEMENT_DESC);
+
+	// VertexBuffer의 멤버와 VS함수인 VS_INPUT(구조체) 멤버와 연결 및 설명
+	// 전달하는 값의 정보, 전달하는 값의 개수, 
+	// 셰이더에 대한 정보를 가진 주소, 셰이더에 대한 정보크기, 셰이더에 대한 정보를 저장할 위치
+	_device->CreateInputLayout(layout, count,
+		_vsBlob->GetBufferPointer(), _vsBlob->GetBufferSize(), _inputLayout.GetAddressOf());
+}
+
+// 셰이더 불러오기
+// 파일 경로, 함수 이름, 셰이더 버전, 저장할 Blob
+void Game::LoadShaderFromFile(const wstring& path, const string& name, const string& version, ComPtr<ID3DBlob>& blob)
+{
+	// 디버그 용도 , 최적화는 건너뜀
+	const uint32 compileFlag = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+	// d3dcompiler.h
+	HRESULT hr = ::D3DCompileFromFile(
+		path.c_str(),
+		nullptr,
+		D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		name.c_str(),
+		version.c_str(),
+		compileFlag,
+		0,
+		blob.GetAddressOf(), // 불러온 셰이더 정보를 blob에 저장함,
+		nullptr
+	);
+
+	// 셰이더 파일을 불러오지 못하면 프로그램 종료
+	assert(SUCCEEDED(hr));
+}
+
+void Game::CreateVS()
+{
+	// L"" : 유니코드(UTF-16)으로 처리됨(2Byte, wchar)
+	// Default.hlsl의 VS함수 내용을 _vsBlob이 저장하게 됨
+	LoadShaderFromFile(L"Default.hlsl", "VS", "vs_5_0", _vsBlob);
+
+	// _vsBlob이 가지고 있는 데이터를 _vertexBuffer를 생성함
+	// GPU에서 _vertexBuffer를 사용하여 데이터를 읽을 수 있음
+	HRESULT hr =_device->CreateVertexShader(
+		_vsBlob->GetBufferPointer(),
+		_vsBlob->GetBufferSize(),
+		nullptr,
+		_vertexShader.GetAddressOf()
+	);
+
+	// VertexShader를 생성하지 못하면 프로그램 중단
+	assert(SUCCEEDED(hr));
+}
+
+void Game::CreatePS()
+{
+	// L"" : 유니코드(UTF-16)으로 처리됨(2Byte, wchar)
+	// Default.hlsl의 VS함수 내용을 _vsBlob이 저장하게 됨
+	LoadShaderFromFile(L"Default.hlsl", "PS", "ps_5_0", _psBlob);
+
+	// _psBlob이 가지고 있는 데이터를 _pixelShader를 생성함
+	// GPU에서 _pixelShader를 사용하여 데이터를 읽을 수 있음
+	HRESULT hr = _device->CreatePixelShader(
+		_psBlob->GetBufferPointer(),
+		_psBlob->GetBufferSize(),
+		nullptr,
+		_pixelShader.GetAddressOf()
+	);
+
+	// PixelShader를 생성하지 못하면 프로그램 중단
+	assert(SUCCEEDED(hr));
+}
+
+
