@@ -22,7 +22,7 @@ private:
 	void SetViewport();
 
 
-	// 기하학적 요소(도형) 생성
+	// 기하학적 요소(도형, 정점) 생성
 	void CreateGeometry();
 	// vertexBuffer의 멤버와 셰이더에서 VS_INPUT(구조체) 멤버와 연결 및 설명, IA단계에서 사용됨
 	// InputLayout : vertexBuffer가 담고 있는 데이터가 어떤 데이터인지, 
@@ -38,6 +38,9 @@ private:
 	void CreateVS();
 	void CreatePS();
 	
+	// pixelShader 단계에서 사용할 수 있는 View
+	// Shader Resource View
+	void CreateSRV();
 
 private:
 	HWND			_hwnd;
@@ -82,12 +85,19 @@ private:
 	// View : 어떠한 리소스에 대해서 설명서를 붙여서 GPU에게 설명해줌
 	// RTV : 후면 Buffer를 설명하기 위한 View
 	ComPtr<ID3D11RenderTargetView>		_renderTargetView;
-	
+	// ShaderResourceView
+	// SRV : PixelShader 단계에서 사용되는 View
+	ComPtr<ID3D11ShaderResourceView>	_shaderResourceView;
+	ComPtr<ID3D11ShaderResourceView>	_shaderResourceView2;
+
+
 	// Mics
 	// 화면를 설명하는 구조체(크기, 등)
 	D3D11_VIEWPORT						_viewport = {0};
 	// 초기 색상
 	float _clearColor[4] = { 0.f, 0.f, 0.f, 0.f };
+
+
 
 	/**
 		Geometry
@@ -99,6 +109,12 @@ private:
 	ComPtr<ID3D11Buffer>				_vertexBuffer = nullptr;
 	// _vertexBuffer를 통해 전달되는 _vertices의 구조를 설명함
 	ComPtr<ID3D11InputLayout>			_inputLayout = nullptr;
+	// IndexBuffer에서 사용할 데이터
+	vector<uint32>						_indices;
+	// IndexBuffer
+	ComPtr<ID3D11Buffer>				_indexBuffer = nullptr;
+
+
 
 	/**
 		Shader

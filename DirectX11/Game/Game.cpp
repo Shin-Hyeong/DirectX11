@@ -33,6 +33,8 @@ void Game::BeginPlay(HWND hwnd)
 	CreateInputLayout();
 	// PixelShader 생성
 	CreatePS();
+	// ShaderResourceView 생성
+	CreateSRV();
 }
 
 void Game::Tick()
@@ -51,8 +53,11 @@ void Game::Render()
 		uint32 stride = sizeof(Vertex);
 		uint32 offset = 0;
 		// IA(코딩 불가) : 사용할 값들을 설정
-		// 사용할 VertexBuffer(정점에 대한 정보) 설정
+		// 사용할 VertexBuffer(정점에 대한 정보) 연결
 		_deviceContext->IASetVertexBuffers(0, 1, _vertexBuffer.GetAddressOf(),&stride, &offset);
+		// 사용할 IndexBuffer(정점이 서로 연결 정보) 연결
+		// DXGI_FORMAT_R32_UINT : 4byte
+		_deviceContext->IASetIndexBuffer(_indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0); 
 		// VertexBuffer에 대한 설명을 연결
 		_deviceContext->IASetInputLayout(_inputLayout.Get());
 		// 각 정점들을 어떻게 연결할것인지 설정
@@ -60,19 +65,29 @@ void Game::Render()
 		// 삼각형 형태로 연결할것
 		_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+
 		// VS(코딩 가능)
 		// 사용할 vertexShader 연결
 		_deviceContext->VSSetShader(_vertexShader.Get(), nullptr, 0);
 
+
 		// RS(코딩 불가)
+
 
 		// PS(코딩 가능)
 		// 사용할 pixelShader 연결
 		_deviceContext->PSSetShader(_pixelShader.Get(), nullptr, 0);
+		// StartSlot : 레지스터의 슬롯 넘버 -> t0
+		// NumView : 연결할 View의 개수
+		// 레지스터 t0에 _shaderResourceView를 1개 연결하고 싶다.
+		_deviceContext->PSSetShaderResources(0, 1, _shaderResourceView.GetAddressOf());
+		// 레지스터 t1에 _shaderResourceView2를 1개 연결하고 싶다.
+		_deviceContext->PSSetShaderResources(1, 1, _shaderResourceView2.GetAddressOf());
 
 		// OM(코딩 불가)
 		// 입력한 값을 그려달라고 요청
-		_deviceContext->Draw(_vertices.size(), 0);
+		// _deviceContext->Draw(_vertices.size(), 0); // 정점 데이터로 그리기
+		_deviceContext->DrawIndexed(_indices.size(), 0, 0); // 인덱스 데이터로 그리기
 	}
 
 	// Render 실행
@@ -186,19 +201,30 @@ void Game::CreateGeometry()
 {
 	// 정점 정보
 	{
-		_vertices.resize(3);
+		_vertices.resize(4);
 
+		// [1][3]
+		// [0][2]
+		// Vec3(0.f, 0,f, 0.f)는 뷰포트의 한가운데임
 		_vertices[0].position = Vec3(-0.5f, -0.5f, 0.f);
-		_vertices[0].color = Color(1.0f, 0.f, 0.f, 1.0f);
+		_vertices[0].uv = Vec2(0.f, 1.f);
+		// _vertices[0].color = Color(1.0f, 0.f, 0.f, 1.0f);
 
-		_vertices[1].position = Vec3(0.f, 0.5f, 0.f);
-		_vertices[1].color = Color(0.f, 1.0f, 0.f, 1.0f);
+		_vertices[1].position = Vec3(-0.5f, 0.5f, 0.f);
+		_vertices[1].uv = Vec2(0.f, 0.f);
+		// _vertices[1].color = Color(1.0f, 0.f, 0.f, 1.0f);
 
 		_vertices[2].position = Vec3(0.5f, -0.5f, 0.f);
-		_vertices[2].color = Color(0.f, 0.f, 1.f, 1.0f);
+		_vertices[2].uv = Vec2(1.f, 1.f);
+		// _vertices[2].color = Color(1.0f, 0.f, 0.f, 1.0f);
+
+		_vertices[3].position = Vec3(0.5f, 0.5f, 0.f);
+		_vertices[3].uv = Vec2(1.f, 0.f);
+		// _vertices[3].color = Color(1.0f, 0.f, 0.f, 1.0f);
 	}
 
 	// GPU의 VRAM에 정점 정보를 가지는 Buffer를 생성함
+	// VertexBuffer
 	{
 		D3D11_BUFFER_DESC desc;
 		// desc를 전체 값을 0으로 초기화 -> 필요한 값만 설정해서 사용함
@@ -220,20 +246,54 @@ void Game::CreateGeometry()
 		// _vertices배열 정보를 가진 VertexBuffer 타입의 Buffer 생성
 		_device->CreateBuffer(&desc, &data, _vertexBuffer.GetAddressOf());
 	}
+	
+	// Index 정보
+	{
+		_indices = { 0, 1, 2, 2, 1, 3 }; // {0, 1, 2} {2, 1, 3}, 정점을 시간방향으로 선택해야함
+	}
+
+	// IndexBuffer
+	{
+		D3D11_BUFFER_DESC desc;
+		// desc를 전체 값을 0으로 초기화 -> 필요한 값만 설정해서 사용함
+		// 모든 값을 설정할 것 아니면 0으로 초기화 이후 사용
+		ZeroMemory(&desc, sizeof(desc));
+		// Buffer의 사용방식 설정
+		// https://learn.microsoft.com/ko-kr/windows/win32/api/d3d11/ne-d3d11-d3d11_usage
+		// https://myoung-min.tistory.com/10
+		// D3D11_USAGE_IMMUTABLE : GPU는 읽기전용으로 사용, CPU는 접근 못함
+		desc.Usage = D3D11_USAGE_IMMUTABLE;
+		desc.BindFlags = D3D11_BIND_INDEX_BUFFER; // IndexBuffer를 만드는데 사용할 것이다
+		desc.ByteWidth = static_cast<UINT>(sizeof(uint32) * _indices.size()); // Vertex 구조체 크기 * 배열 갯수
+
+		D3D11_SUBRESOURCE_DATA data;
+		ZeroMemory(&data, sizeof(data));
+		// CPU에서 GPU에게 전달할 데이터 시작 주소
+		data.pSysMem = _indices.data(); // .data() 배열의 첫번째 값 주소
+
+		// _vertices배열 정보를 가진 VertexBuffer 타입의 Buffer 생성
+		HRESULT hr = _device->CreateBuffer(&desc, &data, _indexBuffer.GetAddressOf());
+		// indexBuffer 생성 못하면 프로그램 종료
+		assert(SUCCEEDED(hr));
+	}
 }
 
-// vertexShader의 입력된 정보를 어떻게 사용하는지 설명
+// VertextBuffer의 데이터를 셰이더랑 연결해서 사용하는 방법을 정의함
+// VertexBuffer도 매핑 전에 단순한 데이터임
+// VertexBuffer를 매핑해서 GPU가 이해할 수 있도록 도와줌.
 void Game::CreateInputLayout()
 {
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{
-		// Shader에서 POSITION은 32bit float가 3개(12byte)로 이루어짐
+		// Shader의 POSITION이랑 연결함
+		// 4byte float가 3개(12byte)로 이루어짐
 		// Vertex구조체에서 position은 구조체 시작 0byte 이후 자리에 있음
 		// Vertex Data로 이루어짐
 		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-		// Shader COLOR은 32bit float가 4개로 이루어짐
+		// Shader의 TEXCOORD이랑 연결됨
+		// 4byte float가 2개로 이루어짐
 		// Vertex구조체의 Color은 시작지점에서 12byte 이후 자리에 있음
-		{"COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+		{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
 	};
 
 	// layout의 배열 개수
@@ -307,4 +367,25 @@ void Game::CreatePS()
 	assert(SUCCEEDED(hr));
 }
 
+void Game::CreateSRV()
+{
+	// 이미지 파일을 불러와야함
+	// DirectXTex 라이브러리를 사용해서 다양한 이미지를 불러올 수 있음.
+	DirectX::TexMetadata md;
+	DirectX::ScratchImage img;
 
+	HRESULT hr =::LoadFromWICFile(L"Monster.png",WIC_FLAGS_NONE, &md, img);
+	// Logo.png를 불러오지 못하면 프로그램 종료
+	assert(SUCCEEDED(hr));
+	hr = ::CreateShaderResourceView(_device.Get(), img.GetImages(), img.GetImageCount(), md, _shaderResourceView.GetAddressOf());
+	// SRV을 생성하지 못하면 프로그램 종료
+	assert(SUCCEEDED(hr));
+
+
+	hr = ::LoadFromWICFile(L"Logo.png", WIC_FLAGS_NONE, &md, img);
+	// Logo.png를 불러오지 못하면 프로그램 종료
+	assert(SUCCEEDED(hr));
+	hr = ::CreateShaderResourceView(_device.Get(), img.GetImages(), img.GetImageCount(), md, _shaderResourceView2.GetAddressOf());
+	// SRV을 생성하지 못하면 프로그램 종료
+	assert(SUCCEEDED(hr));
+}

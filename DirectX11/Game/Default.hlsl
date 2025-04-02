@@ -12,7 +12,8 @@
 struct VS_INPUT
 {
     float4 position : POSITION;
-    float4 color : COLOR;
+    // float4 color : COLOR;
+    float2 uv : TEXCOORD;
 };
 
 
@@ -22,7 +23,8 @@ struct VS_OUTPUT
     // - 3차원 이미지를 2차원 이미지로 변환하는 과정에서 사용되는 좌표 시스템과 행렬
     // - 렌더링 파이프라인의 다른 단계에서도 유효함
     float4 position : SV_POSITION;
-	float4 color : COLOR;
+	// float4 color : COLOR;
+    float2 uv : TEXCOORD;
 };
 
 // Vertex Shader
@@ -32,7 +34,8 @@ VS_OUTPUT VS(VS_INPUT input)
 {
     VS_OUTPUT output;
     output.position = input.position;
-    output.color = input.color;
+    // output.color = input.color;
+    output.uv = input.uv;
     
     return output;
 }
@@ -42,11 +45,21 @@ VS_OUTPUT VS(VS_INPUT input)
 // 각 정점이 가진 색상, 등 을 가지고 영역 내에 위치에 맞는 값을 보간값을 계산함
 
 // Pixel Shader
+// t0의 레지스터에 texture2D타입의 texture0를 사용할 것 이다.
+Texture2D       texture0 : register(t0);
+Texture2D       texture1 : register(t1);
+// s0의 레지스터에 SamplerState타입의 sampler0를 사용할 것이다
+// 맵핑 할 때 사용함
+SamplerState    sampler0 : register(s0);
+
 // Rasterizer에서 적용된 값을 각 픽셀에 적용함
 float4 PS(VS_OUTPUT input) : SV_Target // PS의 결과물을 SV_Target(RenderTarget)에 사용함
 {
-    float4 output = input.color;
+    // float4 output = input.color;
+    // sampler0에 정해진 규정에 따라 
+    // input.uv좌표 값에 맞는 texture0좌표 색상을 가져옴
+    float4 color = texture1.Sample(sampler0, input.uv);
     
     // output += float4(1.f, 1.f, 1.f, 1.f);
-    return output;
+    return color;
 }

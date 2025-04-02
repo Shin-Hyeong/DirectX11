@@ -56,5 +56,10 @@ const int32 GWinSizeY = 600;
 struct Vertex
 {
 	Vec3	position;	// 정점의 3D 좌표, 12byte
-	Color	color;		// 정점 색상
+	// Color	color;		// 정점 색상
+	Vec2	uv;		// uv 좌표
+	// 좌측 상단 기준이 0,0인 기준으로 가로가 u, 세로가 v
+	// (0,0) (1,0)
+	// (0,1) (1,1)
+	// 두 uv 좌표가 있는 도형에 서로 좌표를 매칭하여 삽입할 수 있음.
 };
