@@ -28,6 +28,8 @@ private:
 	// InputLayout : vertexBuffer가 담고 있는 데이터가 어떤 데이터인지, 
 	// 셰이더에 어떻게 넘길 것인지 같은 정보를 저장해 두는 것
 	void CreateInputLayout();
+	// Constant Buffer
+	void CreateConstantBuffer();
 
 
 	// 셰이더 불러오기
@@ -109,10 +111,17 @@ private:
 	ComPtr<ID3D11Buffer>				_vertexBuffer = nullptr;
 	// _vertexBuffer를 통해 전달되는 _vertices의 구조를 설명함
 	ComPtr<ID3D11InputLayout>			_inputLayout = nullptr;
+
 	// IndexBuffer에서 사용할 데이터
 	vector<uint32>						_indices;
 	// IndexBuffer
 	ComPtr<ID3D11Buffer>				_indexBuffer = nullptr;
+
+	// ConstantBuffer에 사용될 데이터
+	// SRT(Scale, Rotation, Translation)
+	TransformData						_transformData;
+	// ConstantBuffer
+	ComPtr<ID3D11Buffer>				_constantBuffer = nullptr;
 
 
 

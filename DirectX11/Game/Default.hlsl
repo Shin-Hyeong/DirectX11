@@ -27,13 +27,20 @@ struct VS_OUTPUT
     float2 uv : TEXCOORD;
 };
 
+// Constant Buffer
+cbuffer TransformData : register(b0) // b : buffer
+{
+    // 나중에는 SRT(Scale,Rotation, Translation) 형태를 가져야함
+    float4 offset;
+}
+
 // Vertex Shader
 // VS_INPUT 타입을 인자로 받아서 VS_OUTPUT타입으로 반환함
 // 정점 단위로 실행됨(정점 마다 개별로 실행됨)
 VS_OUTPUT VS(VS_INPUT input)
 {
     VS_OUTPUT output;
-    output.position = input.position;
+    output.position = input.position + offset;
     // output.color = input.color;
     output.uv = input.uv;
     
@@ -58,7 +65,7 @@ float4 PS(VS_OUTPUT input) : SV_Target // PS의 결과물을 SV_Target(RenderTar
     // float4 output = input.color;
     // sampler0에 정해진 규정에 따라 
     // input.uv좌표 값에 맞는 texture0좌표 색상을 가져옴
-    float4 color = texture1.Sample(sampler0, input.uv);
+    float4 color = texture0.Sample(sampler0, input.uv);
     
     // output += float4(1.f, 1.f, 1.f, 1.f);
     return color;

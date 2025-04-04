@@ -63,3 +63,9 @@ struct Vertex
 	// (0,1) (1,1)
 	// 두 uv 좌표가 있는 도형에 서로 좌표를 매칭하여 삽입할 수 있음.
 };
+
+struct TransformData
+{
+	Vec3 offset;
+	float dummy; // Default.hlsl에서 TransformData가 float4형태 이기때문에 맞추기 위함
+};

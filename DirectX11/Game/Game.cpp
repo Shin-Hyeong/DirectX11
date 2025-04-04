@@ -33,12 +33,35 @@ void Game::BeginPlay(HWND hwnd)
 	CreateInputLayout();
 	// PixelShader 생성
 	CreatePS();
-	// ShaderResourceView 생성
+
+	// Texture을 전달 할 수 있는 ShaderResourceView 생성
 	CreateSRV();
+	// VertexShader에서 사용할 ConstantBuffer 생성
+	CreateConstantBuffer();
 }
 
 void Game::Tick()
 {
+	{
+		// ConstantBuffer에 데이터 전달하기
+		// _transformData -> subResource -> _constantBuffer -> VS
+		_transformData.offset.x += 0.0003f;
+		_transformData.offset.y += 0.0003f;
+
+		// ConstantBuffer
+		D3D11_MAPPED_SUBRESOURCE subResource;
+		ZeroMemory(&subResource, sizeof(subResource));
+
+		// _constantBuffer를 데이터를 넣기 위한 상태로 만듦.
+		// _constantBuffer와 subResource를 연결함 -> subResource에 있는 데이터를 constantBuffer가 사용함
+		_deviceContext->Map(_constantBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &subResource);
+
+		// _transformData가 가지고 있는 데이터를 subResource에 복사 저장함.
+		::memcpy(subResource.pData, &_transformData, sizeof(_transformData));
+
+		// _constantBuffer를 데이터를 그만 넣기 위한 상태로 만듦.
+		_deviceContext->Unmap(_constantBuffer.Get(), 0);
+	}
 	
 }
 
@@ -69,7 +92,7 @@ void Game::Render()
 		// VS(코딩 가능)
 		// 사용할 vertexShader 연결
 		_deviceContext->VSSetShader(_vertexShader.Get(), nullptr, 0);
-
+		_deviceContext->VSSetConstantBuffers(0, 1, _constantBuffer.GetAddressOf());
 
 		// RS(코딩 불가)
 
@@ -233,7 +256,7 @@ void Game::CreateGeometry()
 		// Buffer의 사용방식 설정
 		// https://learn.microsoft.com/ko-kr/windows/win32/api/d3d11/ne-d3d11-d3d11_usage
 		// https://myoung-min.tistory.com/10
-		// D3D11_USAGE_IMMUTABLE : GPU는 읽기전용으로 사용, CPU는 접근 못함
+		// D3D11_USAGE_IMMUTABLE : GPU는 읽기전용으로 사용, CPU는 접근 못함(GPU ReadOnly), 일회성으로 건내줌
 		desc.Usage = D3D11_USAGE_IMMUTABLE; 
 		desc.BindFlags = D3D11_BIND_VERTEX_BUFFER; // VertexBuffer를 만드는데 사용할 것이다
 		desc.ByteWidth = static_cast<UINT>(sizeof(Vertex) * _vertices.size()); // Vertex 구조체 크기 * 배열 갯수
@@ -261,7 +284,7 @@ void Game::CreateGeometry()
 		// Buffer의 사용방식 설정
 		// https://learn.microsoft.com/ko-kr/windows/win32/api/d3d11/ne-d3d11-d3d11_usage
 		// https://myoung-min.tistory.com/10
-		// D3D11_USAGE_IMMUTABLE : GPU는 읽기전용으로 사용, CPU는 접근 못함
+		// D3D11_USAGE_IMMUTABLE : GPU는 읽기전용으로 사용, CPU는 접근 못함(GPU ReadOnly), 일회성으로 건내줌
 		desc.Usage = D3D11_USAGE_IMMUTABLE;
 		desc.BindFlags = D3D11_BIND_INDEX_BUFFER; // IndexBuffer를 만드는데 사용할 것이다
 		desc.ByteWidth = static_cast<UINT>(sizeof(uint32) * _indices.size()); // Vertex 구조체 크기 * 배열 갯수
@@ -304,6 +327,20 @@ void Game::CreateInputLayout()
 	// 셰이더에 대한 정보를 가진 주소, 셰이더에 대한 정보크기, 셰이더에 대한 정보를 저장할 위치
 	_device->CreateInputLayout(layout, count,
 		_vsBlob->GetBufferPointer(), _vsBlob->GetBufferSize(), _inputLayout.GetAddressOf());
+}
+
+void Game::CreateConstantBuffer()
+{
+	D3D11_BUFFER_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+	desc.Usage = D3D11_USAGE_DYNAMIC; // CPU Write + GPU Read
+	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER; // ConstantBuffer 형태로 생성
+	desc.ByteWidth = sizeof(TransformData);	// Buffer 크기를 TransformData만큼 할당
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE; // CPU도 읽기를 허용한다
+
+	HRESULT hr = _device->CreateBuffer(&desc, nullptr, _constantBuffer.GetAddressOf());
+	// ConstantBuffer를 생성 실패하면 프로그램 종료
+	assert(SUCCEEDED(hr));
 }
 
 // 셰이더 불러오기
