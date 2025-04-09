@@ -31,11 +31,18 @@ void Game::BeginPlay(HWND hwnd)
 	CreateVS();
 	// VertexShader에 대한 설명
 	CreateInputLayout();
+
+	// RasterizerState 생성
+	CreateRasterizerState();
+
 	// PixelShader 생성
 	CreatePS();
-
 	// Texture을 전달 할 수 있는 ShaderResourceView 생성
 	CreateSRV();
+	// Texture을 도형에 매핑할 규칙(Sampler) 생성
+	CreateSamplerState();
+
+
 	// VertexShader에서 사용할 ConstantBuffer 생성
 	CreateConstantBuffer();
 }
@@ -45,8 +52,8 @@ void Game::Tick()
 	{
 		// ConstantBuffer에 데이터 전달하기
 		// _transformData -> subResource -> _constantBuffer -> VS
-		_transformData.offset.x += 0.0003f;
-		_transformData.offset.y += 0.0003f;
+		// _transformData.offset.x += 0.0003f;
+		// _transformData.offset.y += 0.0003f;
 
 		// ConstantBuffer
 		D3D11_MAPPED_SUBRESOURCE subResource;
@@ -94,7 +101,9 @@ void Game::Render()
 		_deviceContext->VSSetShader(_vertexShader.Get(), nullptr, 0);
 		_deviceContext->VSSetConstantBuffers(0, 1, _constantBuffer.GetAddressOf());
 
-		// RS(코딩 불가)
+		// RS(코딩 불가, 설정은 가능) : VS에서 알려준 삼각형안에 있는 픽셀들을 판별하는 과정
+		// 사용할 rasterize
+		_deviceContext->RSSetState(_rasterizerState.Get());
 
 
 		// PS(코딩 가능)
@@ -106,8 +115,11 @@ void Game::Render()
 		_deviceContext->PSSetShaderResources(0, 1, _shaderResourceView.GetAddressOf());
 		// 레지스터 t1에 _shaderResourceView2를 1개 연결하고 싶다.
 		_deviceContext->PSSetShaderResources(1, 1, _shaderResourceView2.GetAddressOf());
+		_deviceContext->PSSetSamplers(0, 1, _samplerState.GetAddressOf());
 
 		// OM(코딩 불가)
+		// 겹치는 도형의 영역을 처리 규칙을 연결
+		_deviceContext->OMSetBlendState(_blendState.Get(), nullptr, 0xFFFF);
 		// 입력한 값을 그려달라고 요청
 		// _deviceContext->Draw(_vertices.size(), 0); // 정점 데이터로 그리기
 		_deviceContext->DrawIndexed(_indices.size(), 0, 0); // 인덱스 데이터로 그리기
@@ -230,7 +242,7 @@ void Game::CreateGeometry()
 		// [0][2]
 		// Vec3(0.f, 0,f, 0.f)는 뷰포트의 한가운데임
 		_vertices[0].position = Vec3(-0.5f, -0.5f, 0.f);
-		_vertices[0].uv = Vec2(0.f, 1.f);
+		_vertices[0].uv = Vec2(0.f, 3.f);
 		// _vertices[0].color = Color(1.0f, 0.f, 0.f, 1.0f);
 
 		_vertices[1].position = Vec3(-0.5f, 0.5f, 0.f);
@@ -238,11 +250,11 @@ void Game::CreateGeometry()
 		// _vertices[1].color = Color(1.0f, 0.f, 0.f, 1.0f);
 
 		_vertices[2].position = Vec3(0.5f, -0.5f, 0.f);
-		_vertices[2].uv = Vec2(1.f, 1.f);
+		_vertices[2].uv = Vec2(3.f, 3.f);
 		// _vertices[2].color = Color(1.0f, 0.f, 0.f, 1.0f);
 
 		_vertices[3].position = Vec3(0.5f, 0.5f, 0.f);
-		_vertices[3].uv = Vec2(1.f, 0.f);
+		_vertices[3].uv = Vec2(3.f, 0.f);
 		// _vertices[3].color = Color(1.0f, 0.f, 0.f, 1.0f);
 	}
 
@@ -343,6 +355,27 @@ void Game::CreateConstantBuffer()
 	assert(SUCCEEDED(hr));
 }
 
+void Game::CreateRasterizerState()
+{
+	D3D11_RASTERIZER_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+	// D3D11_FILL_WIREFRAME : 와이어 프레임(폴리곤)만 보이도록 함
+	desc.FillMode = D3D11_FILL_SOLID; // 전체가 보이도록 함 
+	// https://cha930126.tistory.com/59
+	// Culling : 안보이는것을 그리는걸 스킵(카메라 영역에 벗어나면 안그리도록 함)
+	// D3D11_CULL_BACK : 삼각형이 뒤를 바라보고 있으면 Culling(그리지 않음)
+	desc.CullMode = D3D11_CULL_BACK;
+	// Clockwise : 시계방향
+	// CounterClockwise : 반시계방향
+	// FrontCounterClockwise = false -> 반시계방향이 앞이 아님 -> 시계반향이 앞
+	// -> 정점을 연결하는 순서가 시계방향으로 되어 있으면 앞으로 판정함
+	desc.FrontCounterClockwise = false;
+
+	 HRESULT hr = _device->CreateRasterizerState(&desc, _rasterizerState.GetAddressOf());
+	 // RasterizerState가 생성되지 않으면 프로그램 종료
+	 assert(SUCCEEDED(hr));
+}
+
 // 셰이더 불러오기
 // 파일 경로, 함수 이름, 셰이더 버전, 저장할 Blob
 void Game::LoadShaderFromFile(const wstring& path, const string& name, const string& version, ComPtr<ID3DBlob>& blob)
@@ -425,4 +458,48 @@ void Game::CreateSRV()
 	hr = ::CreateShaderResourceView(_device.Get(), img.GetImages(), img.GetImageCount(), md, _shaderResourceView2.GetAddressOf());
 	// SRV을 생성하지 못하면 프로그램 종료
 	assert(SUCCEEDED(hr));
+}
+
+void Game::CreateSamplerState()
+{
+	// https://learn.microsoft.com/ko-kr/windows/win32/api/d3d11/ns-d3d11-d3d11_sampler_desc
+	D3D11_SAMPLER_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+	// U V W 좌표가 0 ~ 1 범위 밖에 있는 범위를 어떻게 할지 설정
+	desc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+	desc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+	desc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+	desc.BorderColor[0] = 1;	// R
+	desc.BorderColor[1] = 1;	// G
+	desc.BorderColor[2] = 1;	// B
+	desc.BorderColor[3] = 1;	// A	
+	desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+	desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR; // Texture을 샘플링할 때 선형보간을 함
+	desc.MaxAnisotropy = 16;
+	desc.MaxLOD = FLT_MAX;
+	desc.MinLOD = FLT_MIN;
+	desc.MipLODBias = 0.f;
+
+	// U V W 좌표 남은 범위에 빨간색으로 채우도록 함
+	_device->CreateSamplerState(&desc, _samplerState.GetAddressOf());
+}
+
+void Game::CreateBlendState()
+{
+	// https://learn.microsoft.com/ko-kr/windows/win32/api/d3d11/ns-d3d11-d3d11_blend_desc
+	D3D11_BLEND_DESC desc;
+	ZeroMemory(&desc, sizeof(desc));
+	desc.AlphaToCoverageEnable = false;
+	desc.IndependentBlendEnable = false;
+
+	desc.RenderTarget[0].BlendEnable = false;		// Blend 기능 온오프
+	desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;		// RGBA의 A값에 따라 Blend 설정
+	desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+	_device->CreateBlendState(&desc, _blendState.GetAddressOf());
 }

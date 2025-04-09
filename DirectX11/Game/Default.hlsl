@@ -56,7 +56,11 @@ VS_OUTPUT VS(VS_INPUT input)
 Texture2D       texture0 : register(t0);
 Texture2D       texture1 : register(t1);
 // s0의 레지스터에 SamplerState타입의 sampler0를 사용할 것이다
-// 맵핑 할 때 사용함
+// PS과정에서 텍스처를 맵핑할 때 어떤 규칙을 통해 매핑할지 정하는 객체
+// https://unialgames.tistory.com/entry/DirectX11Sampler
+// 텍스처에서 색상 데이터를 어떻게 추출할지 결정하는 객체. 
+// 텍스처 좌표가 정확히 텍셀(Texel, 텍스처의 픽셀)에 매핑되지 않을 때, 어떤 텍셀의 색상을 사용할지 결정하는 규칙을 제공함. 
+// 이는 특히 텍스처가 확대, 축소, 회전되거나, 뷰포트의 픽셀과 정확히 일치하지 않을 때 중요하다.
 SamplerState    sampler0 : register(s0);
 
 // Rasterizer에서 적용된 값을 각 픽셀에 적용함

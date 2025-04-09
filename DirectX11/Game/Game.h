@@ -30,6 +30,8 @@ private:
 	void CreateInputLayout();
 	// Constant Buffer
 	void CreateConstantBuffer();
+	// RasterizerState 생성, PS 이전에 호출됨
+	void CreateRasterizerState();
 
 
 	// 셰이더 불러오기
@@ -43,6 +45,11 @@ private:
 	// pixelShader 단계에서 사용할 수 있는 View
 	// Shader Resource View
 	void CreateSRV();
+	// PS 단계에서 텍스처를 맵핑할 때 사용하는 규칙(Sampler) 생성
+	// SamplerState
+	void CreateSamplerState();
+	// VS 단계이후 겹쳐지는 도형들을 저리하는 규칙(BlendState) 생성
+	void CreateBlendState();
 
 private:
 	HWND			_hwnd;
@@ -126,16 +133,25 @@ private:
 
 
 	/**
-		Shader
+		RenderingPipeLine
 	*/
 	// Vertex Shader
 	ComPtr<ID3D11VertexShader>			_vertexShader = nullptr;
 	// Blob : 셰이더 파일 정보를 가져옴
 	ComPtr<ID3DBlob>					_vsBlob = nullptr;
+	// VS이후 생성된 도형들이 겹쳐지는 영역을 어떻게 처리할지 정함
+	ComPtr<ID3D11BlendState>			_blendState = nullptr;
+
+
+	// Rasterizer State
+	ComPtr<ID3D11RasterizerState>		_rasterizerState = nullptr;
+
 
 	// Pixel Shader
 	ComPtr<ID3D11PixelShader>			_pixelShader = nullptr;
 	// Blob : 셰이더 파일 정보를 가져옴
 	ComPtr<ID3DBlob>					_psBlob = nullptr;
+	// SamplerState : Texture을 매핑하는 규칙
+	ComPtr<ID3D11SamplerState>			_samplerState = nullptr;
 };
 
